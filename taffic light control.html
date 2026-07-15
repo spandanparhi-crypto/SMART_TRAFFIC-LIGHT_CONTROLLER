@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JUNCTION — Smart Traffic Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0e11;
+    --panel: #12161b;
+    --panel-2: #171c22;
+    --line: #262d35;
+    --line-bright: #3a4451;
+    --text: #e8eaed;
+    --text-dim: #8b93a1;
+    --text-faint: #5a6270;
+    --amber: #f2b705;
+    --red: #ff4b3e;
+    --yellow: #ffcc00;
+    --green: #2fd48f;
+    --accent: #f2b705;
+    --radius: 10px;
+    --font-display: 'Rajdhani', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  [data-theme="light"]{
+    --bg: #eef0ec;
+    --panel: #ffffff;
+    --panel-2: #f6f7f4;
+    --line: #d8dbd4;
+    --line-bright: #b9bdb3;
+    --text: #171a15;
+    --text-dim: #565f52;
+    --text-faint: #8b9284;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height:100vh;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px);
+    background-size: 40px 40px;
+    background-attachment: fixed;
+    transition: background-color .3s ease, color .3s ease;
+  }
+  .wrap{ max-width: 1320px; margin: 0 auto; padding: 20px 20px 60px; }
+
+  /* ---------- Header ---------- */
+  header.topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 20px; margin-bottom: 18px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    flex-wrap: wrap; gap: 12px;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:6px;
+    background: linear-gradient(180deg, var(--red) 0 33%, var(--yellow) 33% 66%, var(--green) 66% 100%);
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.35);
+    flex-shrink:0;
+  }
+  .brand h1{
+    font-family: var(--font-display); font-weight:700; font-size:20px;
+    letter-spacing:.06em; margin:0; text-transform:uppercase;
+  }
+  .brand .sub{ font-size:11px; color:var(--text-faint); letter-spacing:.08em; text-transform:uppercase; margin-top:2px;}
+  .topbar-right{ display:flex; align-items:center; gap:18px; flex-wrap:wrap; }
+  .status-chip{
+    display:flex; align-items:center; gap:6px;
+    font-family: var(--font-mono); font-size:12px; color: var(--text-dim);
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background: var(--green); box-shadow:0 0 6px var(--green); }
+  .dot.off{ background:var(--red); box-shadow:0 0 6px var(--red); }
+  #clock{ font-family:var(--font-mono); font-size:15px; letter-spacing:.03em; }
+  .theme-toggle{
+    border:1px solid var(--line-bright); background:var(--panel-2); color:var(--text);
+    border-radius:999px; padding:6px 12px; font-size:12px; cursor:pointer;
+    font-family: var(--font-mono); display:flex; align-items:center; gap:6px;
+  }
+  .theme-toggle:hover{ border-color: var(--amber); }
+
+  /* ---------- Layout grid ---------- */
+  .grid{
+    display:grid;
+    grid-template-columns: 300px 1fr 300px;
+    gap: 18px;
+    align-items:start;
+  }
+  @media (max-width: 980px){
+    .grid{ grid-template-columns: 1fr; }
+  }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 18px;
+  }
+  .panel-title{
+    font-family: var(--font-display); font-weight:700; font-size:13px;
+    letter-spacing:.1em; text-transform:uppercase; color: var(--text-dim);
+    display:flex; align-items:center; justify-content:space-between;
+    margin: 0 0 12px 0; padding-bottom:10px; border-bottom: 1px dashed var(--line-bright);
+  }
+  .panel-title .n{ color: var(--text-faint); font-family: var(--font-mono); font-weight:400; }
+
+  /* ---------- Phone controller ---------- */
+  .phone{
+    background: var(--panel-2);
+    border: 1px solid var(--line-bright);
+    border-radius: 26px;
+    padding: 16px 14px 20px;
+    position: relative;
+  }
+  .phone::before{
+    content:""; position:absolute; top:8px; left:50%; transform:translateX(-50%);
+    width:46px; height:5px; border-radius:4px; background: var(--line-bright);
+  }
+  .phone-screen-label{
+    text-align:center; font-family:var(--font-mono); font-size:10px; color:var(--text-faint);
+    letter-spacing:.1em; text-transform:uppercase; margin: 14px 0 12px;
+  }
+  .btn-row{ display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-bottom:10px; }
+  .lbtn{
+    border:1px solid var(--line-bright); background: var(--panel);
+    border-radius:10px; padding:10px 4px; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-family: var(--font-mono); font-size:10px; color: var(--text-dim);
+    letter-spacing:.04em; text-transform:uppercase; transition: transform .12s ease, border-color .12s ease;
+  }
+  .lbtn:hover{ transform: translateY(-1px); border-color: var(--line-bright); }
+  .lbtn:active{ transform: translateY(0px) scale(.97); }
+  .lbtn .swatch{ width:16px; height:16px; border-radius:50%; }
+  .lbtn.red .swatch{ background:var(--red); }
+  .lbtn.yellow .swatch{ background:var(--yellow); }
+  .lbtn.green .swatch{ background:var(--green); }
+  .lbtn.active{ border-color: var(--amber); color: var(--text); box-shadow: 0 0 0 1px var(--amber) inset; }
+
+  .mode-row{ display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-bottom:10px; }
+  .mbtn{
+    border:1px solid var(--line-bright); background: var(--panel);
+    border-radius:8px; padding:9px 4px; cursor:pointer;
+    font-family: var(--font-mono); font-size:10px; color: var(--text-dim);
+    letter-spacing:.03em; text-transform:uppercase;
+  }
+  .mbtn:hover{ border-color:var(--amber); color:var(--text); }
+  .mbtn.on{ background: rgba(242,183,5,.12); border-color: var(--amber); color: var(--text); }
+
+  .emergency-btn{
+    width:100%; margin-top:4px; padding: 12px; border-radius:10px; cursor:pointer;
+    border: 1px solid #ff4b3e; background: rgba(255,75,62,.08); color: var(--red);
+    font-family: var(--font-display); font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    font-size:13px; display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .emergency-btn.on{ background: var(--red); color:#1a0503; animation: pulseglow 1s infinite; }
+  @keyframes pulseglow{ 0%,100%{ box-shadow:0 0 0 0 rgba(255,75,62,.5);} 50%{ box-shadow:0 0 0 8px rgba(255,75,62,0);} }
+
+  .ped-btn{
+    width:100%; margin-top:8px; padding:10px; border-radius:10px; cursor:pointer;
+    border:1px solid var(--line-bright); background:var(--panel);
+    font-family: var(--font-mono); font-size:11px; letter-spacing:.04em; text-transform:uppercase;
+    color: var(--text-dim);
+  }
+  .ped-btn:hover{ border-color: var(--amber); color:var(--text); }
+  .ped-btn.on{ border-color: var(--green); color: var(--green); }
+
+  select.density{
+    width:100%; margin-top:10px; padding:9px; border-radius:8px;
+    background: var(--panel); border:1px solid var(--line-bright); color:var(--text);
+    font-family: var(--font-mono); font-size:12px;
+  }
+
+  .voice-btn{
+    width:100%; margin-top:8px; padding:9px; border-radius:10px; cursor:pointer;
+    border:1px dashed var(--line-bright); background:transparent; color:var(--text-faint);
+    font-family: var(--font-mono); font-size:10px; letter-spacing:.05em; text-transform:uppercase;
+  }
+  .voice-btn.listening{ border-color: var(--green); color: var(--green); }
+
+  /* ---------- Center: Intersection + signal ---------- */
+  .signal-readout{
+    display:flex; align-items:center; gap:22px; margin-bottom: 16px; flex-wrap:wrap;
+  }
+  .lights{
+    background:#05070a; border-radius:14px; padding:14px 10px;
+    display:flex; flex-direction:column; gap:10px; border:1px solid var(--line-bright);
+  }
+  [data-theme="light"] .lights{ background:#1a1d17; }
+  .lamp{ width:34px; height:34px; border-radius:50%; background:#20242a; transition: all .25s ease; }
+  .lamp.red.lit{ background: var(--red); box-shadow: 0 0 18px 4px var(--red); }
+  .lamp.yellow.lit{ background: var(--yellow); box-shadow: 0 0 18px 4px var(--yellow); }
+  .lamp.green.lit{ background: var(--green); box-shadow: 0 0 18px 4px var(--green); }
+  .lamp.flash{ animation: flashlamp 0.5s infinite; }
+  @keyframes flashlamp{ 0%,49%{opacity:1;} 50%,100%{opacity:.25;} }
+
+  .readout-data{ flex:1; min-width:180px; }
+  .readout-data .label{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.08em; }
+  .readout-data .big{
+    font-family: var(--font-display); font-weight:700; font-size:44px; line-height:1;
+    letter-spacing:.02em; margin: 4px 0;
+  }
+  .big.RED{ color: var(--red); } .big.YELLOW{ color: var(--yellow); } .big.GREEN{ color: var(--green); }
+  .timer-big{ font-family: var(--font-mono); font-size:34px; color: var(--text); }
+  .timer-big span{ font-size:14px; color: var(--text-faint); }
+
+  .roadmap-box{
+    position:relative; border-radius: var(--radius); overflow:hidden;
+    border:1px solid var(--line-bright); background:#0c1a12;
+    aspect-ratio: 16/10;
+  }
+  [data-theme="light"] .roadmap-box{ background:#e4e8de; }
+
+  .predict-bar-wrap{ margin-top:14px; }
+  .predict-label{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--text-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em;}
+  .predict-track{ height:8px; border-radius:6px; background: var(--panel-2); border:1px solid var(--line); overflow:hidden; }
+  .predict-fill{ height:100%; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); transition: width .6s ease; }
+
+  /* ---------- Stats ---------- */
+  .stat-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .stat-card{
+    background: var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:10px 12px;
+  }
+  .stat-card .v{ font-family: var(--font-mono); font-size:22px; font-weight:700; color: var(--text); }
+  .stat-card .k{ font-family: var(--font-mono); font-size:10px; color: var(--text-faint); text-transform:uppercase; letter-spacing:.05em; margin-top:2px; }
+
+  .vehicle-list{ display:flex; flex-direction:column; gap:8px; }
+  .vehicle-row{ display:flex; align-items:center; justify-content:space-between; font-family: var(--font-mono); font-size:12px; color: var(--text-dim); }
+  .vehicle-row .bar{ flex:1; height:6px; margin: 0 10px; background: var(--panel-2); border-radius:4px; overflow:hidden; border:1px solid var(--line);}
+  .vehicle-row .bar i{ display:block; height:100%; background: var(--amber); }
+  .vehicle-row b{ color: var(--text); width:22px; text-align:right; }
+
+  .log-list{ display:flex; flex-direction:column-reverse; gap:0; max-height:170px; overflow-y:auto; font-family: var(--font-mono); font-size:12px; }
+  .log-list::-webkit-scrollbar{ width:6px; }
+  .log-list::-webkit-scrollbar-thumb{ background: var(--line-bright); border-radius:4px; }
+  .log-row{ display:flex; gap:10px; padding:6px 0; border-bottom: 1px dashed var(--line); color: var(--text-dim); }
+  .log-row .t{ color: var(--text-faint); flex-shrink:0; }
+  .log-row .tag{ font-weight:700; }
+  .log-row .tag.RED{ color:var(--red); } .log-row .tag.YELLOW{ color:var(--yellow); } .log-row .tag.GREEN{ color:var(--green); }
+  .log-row .tag.SYS{ color: var(--amber); }
+
+  .notif-row{ display:flex; align-items:flex-start; gap:8px; padding:8px 0; border-bottom:1px dashed var(--line); font-size:12px; color:var(--text-dim); }
+  .notif-row .b{ width:6px; height:6px; border-radius:50%; background:var(--amber); margin-top:5px; flex-shrink:0; }
+
+  footer{ text-align:center; color: var(--text-faint); font-family: var(--font-mono); font-size:11px; margin-top: 20px; letter-spacing:.04em; }
+</style>
+</head>
+<body data-theme="dark">
+<div class="wrap">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <h1>Junction</h1>
+        <div class="sub">Smart Traffic Control · Remote Panel</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="status-chip"><span class="dot" id="net-dot"></span><span id="net-label">Phone Connected</span></div>
+      <div class="status-chip">🔋 <span id="battery-label">--%</span></div>
+      <div id="clock" class="status-chip">--:--:--</div>
+      <button class="theme-toggle" id="theme-toggle">🌙 Dark</button>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- LEFT: Phone Controller -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Mobile Controller <span class="n">01</span></div>
+        <div class="phone">
+          <div class="phone-screen-label">Control Panel</div>
+          <div class="btn-row">
+            <button class="lbtn green" data-light="GREEN"><span class="swatch"></span>Green</button>
+            <button class="lbtn yellow" data-light="YELLOW"><span class="swatch"></span>Yellow</button>
+            <button class="lbtn red" data-light="RED"><span class="swatch"></span>Red</button>
+          </div>
+          <div class="mode-row">
+            <button class="mbtn" id="btn-auto">▶ Auto</button>
+            <button class="mbtn" id="btn-pause">⏸ Pause</button>
+            <button class="mbtn" id="btn-reset">🔄 Reset</button>
+          </div>
+          <button class="emergency-btn" id="btn-emergency">🚑 Emergency Mode</button>
+          <button class="ped-btn" id="btn-ped">🚶 Pedestrian Crossing Request</button>
+          <select class="density" id="density-select">
+            <option value="low">Low Traffic — 20s Green</option>
+            <option value="medium" selected>Medium Traffic — 35s Green</option>
+            <option value="high">High Traffic — 50s Green</option>
+          </select>
+          <button class="voice-btn" id="voice-btn">🎙 Voice Command: Off</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Signal + Map -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Live Traffic Signal <span class="n">02</span></div>
+        <div class="signal-readout">
+          <div class="lights">
+            <div class="lamp red" id="lamp-red"></div>
+            <div class="lamp yellow" id="lamp-yellow"></div>
+            <div class="lamp green" id="lamp-green"></div>
+          </div>
+          <div class="readout-data">
+            <div class="label">Current Signal</div>
+            <div class="big RED" id="status-big">RED</div>
+            <div class="timer-big"><span id="timer-num">30</span> <span>sec remaining</span></div>
+          </div>
+        </div>
+
+        <div class="roadmap-box" id="roadmap"></div>
+
+        <div class="predict-bar-wrap">
+          <div class="predict-label"><span>AI Traffic Prediction</span><span id="predict-text">Medium Traffic Expected</span></div>
+          <div class="predict-track"><div class="predict-fill" id="predict-fill" style="width:55%"></div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Signal History <span class="n">05</span></div>
+        <div class="log-list" id="log-list"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Stats / Vehicles / Notifications -->
+    <div>
+      <div class="panel">
+        <div class="panel-title">Statistics <span class="n">03</span></div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="v" id="stat-signals">0</div><div class="k">Signals Today</div></div>
+          <div class="stat-card"><div class="v" id="stat-emerg">0</div><div class="k">Emergency Calls</div></div>
+          <div class="stat-card"><div class="v" id="stat-vehicles">0</div><div class="k">Vehicles Passed</div></div>
+          <div class="stat-card"><div class="v" id="stat-wait">0s</div><div class="k">Avg Wait Time</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Vehicles Waiting <span class="n">04</span></div>
+        <div class="vehicle-list" id="vehicle-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Latest Activity <span class="n">06</span></div>
+        <div id="notif-list"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>JUNCTION SMART TRAFFIC SYSTEM — Demo build for portfolio / academic use</footer>
+</div>
+
+<script>
+(function(){
+  // ---------- Utility ----------
+  const $ = (id) => document.getElementById(id);
+  const pad = n => String(n).padStart(2,'0');
+
+  // ---------- Clock ----------
+  function tickClock(){
+    const d = new Date();
+    let h = d.getHours(); const ampm = h >= 12 ? 'PM':'AM';
+    h = h % 12; if(h===0) h=12;
+    $('clock').textContent = `${pad(h)}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${ampm}`;
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  // ---------- Theme ----------
+  const themeBtn = $('theme-toggle');
+  themeBtn.addEventListener('click', () => {
+    const body = document.body;
+    const isDark = body.getAttribute('data-theme') === 'dark';
+    body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    themeBtn.textContent = isDark ? '☀️ Light' : '🌙 Dark';
+    drawMap();
+  });
+
+  // ---------- Network / Battery ----------
+  function setNetwork(online){
+    $('net-dot').classList.toggle('off', !online);
+    $('net-label').textContent = online ? 'Phone Connected' : 'Phone Offline';
+  }
+  setNetwork(true);
+  window.addEventListener('online', ()=>setNetwork(true));
+  window.addEventListener('offline', ()=>setNetwork(false));
+
+  if (navigator.getBattery) {
+    navigator.getBattery().then(b => {
+      const update = () => $('battery-label').textContent = Math.round(b.level*100) + '%';
+      update();
+      b.addEventListener('levelchange', update);
+    }).catch(()=> simulateBattery());
+  } else {
+    simulateBattery();
+  }
+  function simulateBattery(){
+    let lvl = 87;
+    $('battery-label').textContent = lvl + '%';
+    setInterval(()=>{ lvl = Math.max(20, lvl - (Math.random()<0.3?1:0)); $('battery-label').textContent = lvl + '%'; }, 15000);
+  }
+
+  // ---------- Core state ----------
+  const DENSITY = {
+    low:    { green: 20, red: 25, yellow: 5 },
+    medium: { green: 35, red: 40, yellow: 5 },
+    high:   { green: 50, red: 55, yellow: 5 },
+  };
+  let density = 'medium';
+  let light = 'RED';
+  let remaining = DENSITY[density].red;
+  let mode = 'auto'; // auto | manual | paused
+  let emergency = false;
+  let pedActive = false;
+  let timerId = null;
+
+  let stats = { signals: 0, emergency: 0, vehicles: 4258, waitSum: 0, waitCount: 0 };
+  let vehicles = { N: 12, S: 18, E: 8, W: 15 };
+
+  const durationFor = (l) => l === 'YELLOW' ? DENSITY[density].yellow : DENSITY[density][l.toLowerCase()];
+
+  function log(tag, text){
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const d = new Date();
+    row.innerHTML = `<span class="t">${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}</span><span class="tag ${tag}">${tag}</span><span>${text}</span>`;
+    $('log-list').appendChild(row);
+    const list = $('log-list');
+    if (list.children.length > 40) list.removeChild(list.firstChild);
+  }
+  function notify(text){
+    const row = document.createElement('div');
+    row.className = 'notif-row';
+    row.innerHTML = `<span class="b"></span><span>${text}</span>`;
+    const list = $('notif-list');
+    list.insertBefore(row, list.firstChild);
+    while (list.children.length > 6) list.removeChild(list.lastChild);
+  }
+
+  function renderLight(){
+    ['red','yellow','green'].forEach(c => {
+      const el = $('lamp-'+c);
+      el.classList.remove('lit','flash');
+    });
+    const key = light.toLowerCase();
+    $('lamp-'+key).classList.add('lit');
+    if (emergency) $('lamp-red').classList.add('flash');
+
+    $('status-big').textContent = light;
+    $('status-big').className = 'big ' + light;
+    $('timer-num').textContent = remaining;
+    drawMap();
+  }
+
+  function updateVehicleUI(){
+    const wrap = $('vehicle-list');
+    wrap.innerHTML = '';
+    const max = Math.max(...Object.values(vehicles), 1);
+    const dirNames = { N:'North', S:'South', E:'East', W:'West' };
+    Object.keys(vehicles).forEach(k => {
+      const row = document.createElement('div');
+      row.className = 'vehicle-row';
+      const pct = Math.min(100, (vehicles[k]/max)*100);
+      row.innerHTML = `<span>${dirNames[k]}</span><span class="bar"><i style="width:${pct}%"></i></span><b>${vehicles[k]}</b>`;
+      wrap.appendChild(row);
+    });
+  }
+  updateVehicleUI();
+  setInterval(() => {
+    Object.keys(vehicles).forEach(k => {
+      vehicles[k] = Math.max(0, vehicles[k] + Math.round((Math.random()-0.45)*4));
+    });
+    updateVehicleUI();
+  }, 4000);
+
+  function updateStats(){
+    $('stat-signals').textContent = stats.signals;
+    $('stat-emerg').textContent = stats.emergency;
+    $('stat-vehicles').textContent = stats.vehicles.toLocaleString();
+    const avg = stats.waitCount ? Math.round(stats.waitSum/stats.waitCount) : 0;
+    $('stat-wait').textContent = avg + 's';
+  }
+  updateStats();
+
+  function updatePrediction(){
+    const map = { low: [22,'Low Traffic Expected'], medium: [55,'Medium Traffic Expected'], high: [85,'High Traffic Expected'] };
+    const [pct, text] = map[density];
+    $('predict-fill').style.width = pct + '%';
+    $('predict-text').textContent = text;
+  }
+  updatePrediction();
+
+  function setActiveLightButtons(){
+    document.querySelectorAll('.lbtn').forEach(b => b.classList.toggle('active', b.dataset.light === light));
+  }
+
+  function nextLight(l){
+    if (l === 'RED') return 'GREEN';
+    if (l === 'GREEN') return 'YELLOW';
+    return 'RED';
+  }
+
+  function setLight(newLight, opts={}){
+    if (newLight !== light && light === 'GREEN') {
+      stats.vehicles += Math.round(6 + Math.random()*10);
+      stats.waitSum += durationFor('RED');
+      stats.waitCount += 1;
+      updateStats();
+    }
+    light = newLight;
+    remaining = opts.duration != null ? opts.duration : durationFor(light);
+    stats.signals += 1;
+    setActiveLightButtons();
+    renderLight();
+    updateStats();
+    if (!opts.silent) log(light, opts.reason || `Signal changed to ${light}`);
+  }
+
+  function tickTimer(){
+    if (mode !== 'auto' || emergency || pedActive) return;
+    remaining -= 1;
+    if (remaining <= 0) {
+      setLight(nextLight(light));
+    } else {
+      $('timer-num').textContent = remaining;
+    }
+  }
+
+  function startTimer(){
+    if (timerId) clearInterval(timerId);
+    timerId = setInterval(tickTimer, 1000);
+  }
+  startTimer();
+
+  // ---------- Manual light buttons ----------
+  document.querySelectorAll('.lbtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (emergency || pedActive) return;
+      mode = 'manual';
+      updateModeButtons();
+      setLight(btn.dataset.light, { reason: `Manually set to ${btn.dataset.light}` });
+      notify(`${btn.dataset.light} activated manually`);
+    });
+  });
+
+  function updateModeButtons(){
+    $('btn-auto').classList.toggle('on', mode === 'auto');
+    $('btn-pause').classList.toggle('on', mode === 'paused');
+  }
+
+  $('btn-auto').addEventListener('click', () => {
+    mode = 'auto';
+    updateModeButtons();
+    log('SYS', 'Auto mode engaged');
+    notify('Auto mode started');
+  });
+  $('btn-pause').addEventListener('click', () => {
+    mode = mode === 'paused' ? 'auto' : 'paused';
+    updateModeButtons();
+    log('SYS', mode === 'paused' ? 'Signal paused' : 'Signal resumed');
+    notify(mode === 'paused' ? 'Paused by operator' : 'Resumed by operator');
+  });
+  $('btn-reset').addEventListener('click', () => {
+    emergency = false; pedActive = false;
+    $('btn-emergency').classList.remove('on');
+    $('btn-ped').classList.remove('on');
+    density = 'medium';
+    $('density-select').value = 'medium';
+    updatePrediction();
+    mode = 'auto';
+    updateModeButtons();
+    setLight('RED', { reason: 'System reset' });
+    log('SYS', 'System reset to default');
+    notify('System reset');
+  });
+
+  // ---------- Emergency ----------
+  $('btn-emergency').addEventListener('click', () => {
+    emergency = !emergency;
+    $('btn-emergency').classList.toggle('on', emergency);
+    if (emergency) {
+      stats.emergency += 1;
+      updateStats();
+      setLight('RED', { reason: 'Emergency vehicle — all lanes stopped', silent:true });
+      log('SYS', 'Emergency mode enabled — priority lane cleared');
+      notify('🚑 Emergency mode enabled');
+      renderLight();
+      setTimeout(() => {
+        if (!emergency) return;
+        log('GREEN', 'Priority lane cleared for emergency vehicle');
+      }, 300);
+    } else {
+      log('SYS', 'Emergency mode disabled');
+      notify('Emergency mode cleared');
+      renderLight();
+    }
+  });
+
+  // ---------- Pedestrian ----------
+  $('btn-ped').addEventListener('click', () => {
+    if (pedActive) return;
+    pedActive = true;
+    $('btn-ped').classList.add('on');
+    log('SYS', 'Pedestrian crossing requested');
+    notify('🚶 Pedestrian crossing requested');
+    const prevLight = light;
+    setLight('RED', { reason: 'All vehicles stopped for crossing', silent:true });
+    renderLight();
+    let count = 12;
+    const interval = setInterval(() => {
+      count -= 1;
+      $('timer-num').textContent = count;
+      if (count <= 0) {
+        clearInterval(interval);
+        pedActive = false;
+        $('btn-ped').classList.remove('on');
+        log('SYS', 'Crossing complete — signal resumed');
+        notify('Crossing complete');
+        setLight(mode === 'auto' ? 'GREEN' : prevLight);
+      }
+    }, 1000);
+  });
+
+  // ---------- Density ----------
+  $('density-select').addEventListener('change', (e) => {
+    density = e.target.value;
+    updatePrediction();
+    log('SYS', `Traffic density set to ${density.toUpperCase()}`);
+    notify(`Density updated: ${density}`);
+    if (mode === 'auto') remaining = durationFor(light);
+  });
+
+  // ---------- Voice ----------
+  const voiceBtn = $('voice-btn');
+  let recognizing = false;
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SpeechRec) {
+    const rec = new SpeechRec();
+    rec.continuous = true;
+    rec.lang = 'en-US';
+    rec.onresult = (e) => {
+      const said = e.results[e.results.length-1][0].transcript.toLowerCase();
+      if (said.includes('green')) { mode='manual'; updateModeButtons(); setLight('GREEN', {reason:'Voice command'}); }
+      else if (said.includes('red')) { mode='manual'; updateModeButtons(); setLight('RED', {reason:'Voice command'}); }
+      else if (said.includes('yellow')) { mode='manual'; updateModeButtons(); setLight('YELLOW', {reason:'Voice command'}); }
+      else if (said.includes('emergency')) { $('btn-emergency').click(); }
+      notify(`Voice heard: "${said}"`);
+    };
+    rec.onend = () => { if (recognizing) rec.start(); };
+    voiceBtn.addEventListener('click', () => {
+      recognizing = !recognizing;
+      voiceBtn.classList.toggle('listening', recognizing);
+      voiceBtn.textContent = recognizing ? '🎙 Voice Command: Listening…' : '🎙 Voice Command: Off';
+      if (recognizing) { try { rec.start(); } catch(e){} } else { rec.stop(); }
+    });
+  } else {
+    voiceBtn.disabled = true;
+    voiceBtn.textContent = '🎙 Voice Command: Unsupported';
+    voiceBtn.style.opacity = 0.5;
+  }
+
+  // ---------- Road map (SVG intersection with animated cars) ----------
+  const roadmap = $('roadmap');
+  let carAnim = { n:0, s:0, e:0, w:0 };
+  function drawMap(){
+    const dark = document.body.getAttribute('data-theme') !== 'light';
+    const roadColor = dark ? '#1a1f24' : '#c9cdc0';
+    const laneColor = dark ? '#f2b705' : '#8b8f7f';
+    const bg = dark ? '#0c1a12' : '#e4e8de';
+    const go = (dir) => (dir === light) || (dir==='GREEN' && light==='GREEN');
+    const nsGo = light === 'GREEN' && !emergency && !pedActive;
+    const ewStop = true; // single-approach simplified model: N/S is the modeled approach
+
+    roadmap.innerHTML = `
+    <svg viewBox="0 0 400 250" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+      <rect width="400" height="250" fill="${bg}"/>
+      <rect x="160" y="0" width="80" height="250" fill="${roadColor}"/>
+      <rect x="0" y="90" width="400" height="70" fill="${roadColor}"/>
+      <g stroke="${laneColor}" stroke-width="2" stroke-dasharray="8 8" opacity="0.8">
+        <line x1="200" y1="0" x2="200" y2="90" />
+        <line x1="200" y1="160" x2="200" y2="250" />
+        <line x1="0" y1="125" x2="160" y2="125" />
+        <line x1="240" y1="125" x2="400" y2="125" />
+      </g>
+      <!-- signal lamp housing top -->
+      <g transform="translate(210,68)">
+        <rect x="-9" y="-24" width="18" height="46" rx="4" fill="#05070a" stroke="#333" />
+        <circle cx="0" cy="-14" r="5" fill="${light==='RED' ? '#ff4b3e' : '#3a1512'}"/>
+        <circle cx="0" cy="0" r="5" fill="${light==='YELLOW' ? '#ffcc00' : '#3a2f0a'}"/>
+        <circle cx="0" cy="14" r="5" fill="${light==='GREEN' && !emergency ? '#2fd48f' : '#0f2e22'}"/>
+      </g>
+      <g id="car-n" transform="translate(178,${nsGo ? 20 : 78})"><rect width="16" height="26" rx="3" fill="#4aa3ff"/></g>
+      <g id="car-s" transform="translate(206,${nsGo ? 228 : 172})"><rect width="16" height="26" rx="3" fill="#ff8a4a"/></g>
+      <g id="car-e" transform="translate(${!nsGo ? 340 : 300},178)"><rect width="26" height="16" rx="3" fill="#c76bff"/></g>
+      <g id="car-w" transform="translate(${!nsGo ? 34 : 74},58)"><rect width="26" height="16" rx="3" fill="#6bff9c"/></g>
+      ${pedActive ? '<g transform="translate(178,110)"><rect width="44" height="10" fill="#f2b705" opacity="0.85"/></g>' : ''}
+    </svg>`;
+  }
+  drawMap();
+
+  // ---------- init ----------
+  updateModeButtons();
+  setActiveLightButtons();
+  renderLight();
+  log('SYS', 'System initialized — auto mode running');
+  notify('System started');
+})();
+</script>
+</body>
+</html>
